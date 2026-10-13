@@ -3288,7 +3288,7 @@ export function toolsToInferenceFormat(
 
 /**
  * Execute a tool call and return the result.
- * Optionally evaluates against the policy engine before execution.
+ * Requires a policy engine and turn context before execution.
  */
 export async function executeTool(
   toolName: string,
@@ -3316,7 +3316,18 @@ export async function executeTool(
     };
   }
 
-  // Policy evaluation (if engine is provided)
+  if (!policyEngine || !turnContext) {
+    return {
+      id: ulid(),
+      name: toolName,
+      arguments: args,
+      result: "",
+      durationMs: Date.now() - startTime,
+      error: "POLICY_CONTEXT_REQUIRED",
+    };
+  }
+
+  // Policy evaluation (required; fail closed)
   if (policyEngine && turnContext) {
     const request: PolicyRequest = {
       tool,
