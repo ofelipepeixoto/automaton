@@ -241,6 +241,12 @@ export async function editFile(
     };
   }
 
+  // Re-check canonical target, not just the caller-supplied alias.
+  // This local check does not replace path enforcement in the remote transport.
+  if (isProtectedFile(resolvedPath)) {
+    return { success: false, error: "BLOCKED: Protected canonical path" };
+  }
+
   // 3. Rate limiting
   if (isRateLimited(db)) {
     return {

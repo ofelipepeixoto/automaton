@@ -1,7 +1,19 @@
 name: CI
 on: [push, pull_request]
 jobs:
+  offline-hardening:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --test test/offline-hardening.test.mjs
+
   build-and-test:
+    # Fork CI is restricted to reviewed dependency-free synthetic tests.
+    # The full suite includes wallet generation and install lifecycle scripts.
+    if: github.repository == 'Conway-Research/automaton'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -22,7 +34,7 @@ jobs:
           RC=$?
           set -e
           # Exit code 124 means timeout killed the process (vitest hung after tests completed)
-          if [ $RC -eq 124 ]; then echo "::warning::vitest process hung after tests, killed by timeout"; exit 0; fi
+          if [ $RC -eq 124 ]; then echo "::error::test run timed out; result unverified"; exit 124; fi
           exit $RC
       - name: Run security tests
         timeout-minutes: 10
@@ -31,10 +43,11 @@ jobs:
           timeout 180 pnpm test -- --grep "security|injection|policy|financial"
           RC=$?
           set -e
-          if [ $RC -eq 124 ]; then echo "::warning::vitest process hung after tests, killed by timeout"; exit 0; fi
+          if [ $RC -eq 124 ]; then echo "::error::test run timed out; result unverified"; exit 124; fi
           exit $RC
 
   security-audit:
+    if: github.repository == 'Conway-Research/automaton'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,4 +56,4 @@ jobs:
           node-version: 22
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
-      - run: pnpm audit --audit-level=high || true
+      - run: pnpm audit --audit-level=high
